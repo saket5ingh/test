@@ -1,25 +1,15 @@
-Good investigation. Before implementing anything, I want a more rigorous safety review of your proposed circuit-breaker changes.
+Your bounded recovery proposal looks promising, and I agree that simply removing `owns_probe` is unsafe.
 
-The cooldown escalation arithmetic is confirmed, but `owns_probe` may represent intentional half-open circuit-breaker protection rather than a bug.
+Before implementing, please complete these checks:
 
-Please investigate:
+1. Verify what `error.session_generation is not None` guarantees. Does it prove successful bootstrap in the same request attempt, or can it reference an earlier session?
+2. Do not claim the 12 failed production tasks were distinct unless actual production events confirm their task IDs.
+3. Provide read-only commands to extract the real HTTP diagnostics around 20:39–20:48 IST, including connection phases, timeout evidence and failure endpoints.
+4. Verify that `probe_holds` is updated atomically, bounded at 3 and reset correctly on successes and genuine escalations.
+5. Add regression tests for bootstrap success followed by case failure, total source outage, correlated network failures, throttling, Retry-After and repeated half-open failures.
+6. Confirm that `PROBE_HOLD_LIMIT=0` preserves the existing behavior exactly.
+7. Run complete Linux CI and provide a migration 011 deployment and rollback plan.
 
-1. Trace exactly what happens if `owns_probe` is removed and a recovery probe fails while the failure streak is below the normal threshold. Examine paused_until, probe_owner, recovery_successes and subsequent claim behavior.
+Do not change production, disable the circuit breaker, reduce the 3-second request interval, increase concurrency or deploy anything yet.
 
-2. Determine whether removing it could increase request pressure during a genuine upstream outage. Preserve fail-safe circuit-breaker behavior.
-
-3. Reproduce the full failure and recovery sequence with mocked RemoteProtocolError exceptions in isolated PostgreSQL tests.
-
-4. Test repeated probe failures, different failing tasks, successful probes, session bootstrap success followed by case-history failure, and persistent upstream outages.
-
-5. Evaluate a safer alternative: keep half-open probe failure protection but avoid unnecessary escalation of cooldown_level for isolated or endpoint-specific failures.
-
-6. Verify whether a repeatedly failing CNR or endpoint causes unrelated healthy tasks to be blocked. Do not assume the same task is selected repeatedly.
-
-7. Review the actual HTTP diagnostics around 20:39–20:48, especially connection reuse, request phase, response status, incomplete responses, timeout and TCP connection evidence.
-
-8. Compare possible fixes by reliability, upstream safety, fairness, expected throughput and implementation complexity.
-
-Do not implement or deploy anything yet. Do not contact the live eCourts service.
-
-Provide a minimal recommended change, exact before/after state transitions, regression-test plan and an explicit explanation of how the fix preserves source protection. Do not recommend increasing concurrency or reducing the three-second pacing.
+Give me a final go/no-go recommendation based on production evidence and test results. Distinguish the simulated 92% improvement from a reliable production forecast.
